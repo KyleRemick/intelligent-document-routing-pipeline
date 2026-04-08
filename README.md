@@ -150,6 +150,18 @@ After deploy, you can upload the sample PDF with [scripts/smoke_test.ps1](script
 
 **Interview talking points:** [docs/interview-prep.md](docs/interview-prep.md).
 
+### Publish to GitHub
+
+Create an empty repository on GitHub, then from this folder:
+
+```bash
+git remote add origin https://github.com/<you>/<repo>.git
+git branch -M main
+git push -u origin main
+```
+
+[.gitignore](.gitignore) excludes `.aws-sam/` and `samconfig.toml` so build artifacts and guided-deploy config stay local.
+
 ---
 
 ## Example processing flow
