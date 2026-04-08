@@ -35,16 +35,6 @@ flowchart LR
   fn --> logs
 ```
 
-Additional design notes: [architecture/decisions.md](architecture/decisions.md).
-
----
-
-## Why this project matters
-
-Employers look for **practical** cloud skills: triggers, permissions, observability, and honest boundaries. This repo shows you can wire AWS services into a coherent workflow, reason about failure paths, and document tradeoffs—without overstating ML or compliance.
-
----
-
 ## AWS services used
 
 | Service | Role |
@@ -90,7 +80,6 @@ Infrastructure is defined in [template.yaml](template.yaml) (AWS SAM).
 
 ```text
 ├── README.md
-├── LICENSE
 ├── template.yaml              # SAM / CloudFormation
 ├── samconfig.toml.example
 ├── pytest.ini
@@ -120,7 +109,6 @@ Infrastructure is defined in [template.yaml](template.yaml) (AWS SAM).
     ├── deployment.md
     ├── usage.md
     ├── future-improvements.md
-    └── interview-prep.md      # Talking points for interviews
 ```
 
 ---
@@ -148,21 +136,6 @@ Full steps and post-deploy checks: [docs/deployment.md](docs/deployment.md). Sta
 
 After deploy, you can upload the sample PDF with [scripts/smoke_test.ps1](scripts/smoke_test.ps1) (pass your bucket name from stack outputs). OCR can take a few minutes; Lambda/Textract waits are configured for up to **five minutes** (see `template.yaml`).
 
-**Interview talking points:** [docs/interview-prep.md](docs/interview-prep.md).
-
-### Publish to GitHub
-
-Create an empty repository on GitHub, then from this folder:
-
-```bash
-git remote add origin https://github.com/<you>/<repo>.git
-git branch -M main
-git push -u origin main
-```
-
-[.gitignore](.gitignore) excludes `.aws-sam/` and `samconfig.toml` so build artifacts and guided-deploy config stay local.
-
----
 
 ## Example processing flow
 
@@ -218,18 +191,3 @@ Summarized in [docs/future-improvements.md](docs/future-improvements.md): confid
 pip install -r requirements-dev.txt
 pytest
 ```
-
----
-
-## Resume-ready bullet ideas
-
-- Designed an **event-driven** serverless pipeline on AWS (S3, EventBridge, Lambda, Textract, DynamoDB) with **Infrastructure as Code** (AWS SAM).  
-- Implemented **OCR-based document routing** with rule-based classification, structured metadata, and **CloudWatch** observability.  
-- Applied **least-privilege IAM** and **encryption defaults** for S3; documented limitations of keyword routing and compliance scope.  
-- Authored **deployment and architecture documentation** suitable for stakeholder and technical interviews.
-
----
-
-## License
-
-See [LICENSE](LICENSE) (MIT).
