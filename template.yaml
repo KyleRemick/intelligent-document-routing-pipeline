@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Intelligent Document Routing Pipeline — S3-triggered Lambda, Textract OCR,
+  DynamoDB metadata, and prefix-based routing.
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 256
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: doc-routing
+    Description: Prefix for resource names (lowercase, no spaces).
+
+Resources:
+  DocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+
+  MetadataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: document_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: document_id
+          KeyType: HASH
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+
+  DocumentRoutingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: OCR, classify, store metadata, route documents by rules.
+      Handler: handler.lambda_handler
+      CodeUri: src/
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !Ref MetadataTable
+          DOCUMENTS_BUCKET_NAME: !Ref DocumentsBucket
+          INGEST_PREFIX: incoming/
+          ROUTED_PREFIX: routed/
+          EXCEPTIONS_PREFIX: exceptions/
+          UNCLASSIFIED_PREFIX: routed/unclassified/
+          TEXT_PREVIEW_MAX_CHARS: "2000"
+          TEXTRACT_POLL_INTERVAL_SEC: "2.0"
+          TEXTRACT_MAX_WAIT_SEC: "300"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetadataTable
+        - S3CrudPolicy:
+            BucketName: !Ref DocumentsBucket
+        - Statement:
+            - Sid: TextractAsyncAPI
+              Effect: Allow
+              Action:
+                - textract:StartDocumentTextDetection
+                - textract:GetDocumentTextDetection
+              Resource: "*"
+      Tags:
+        project: !Ref ProjectName
+
+  DocumentIngestRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ProjectName}-s3-object-created"
+      Description: Invoke routing Lambda on S3 Object Created (via EventBridge).
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - Object Created
+        detail:
+          bucket:
+            name:
+              - !Ref DocumentsBucket
+          object:
+            key:
+              - prefix: incoming/
+      Targets:
+        - Id: DocumentRoutingFunction
+          Arn: !GetAtt DocumentRoutingFunction.Arn
+
+  DocumentIngestRulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DocumentRoutingFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DocumentIngestRule.Arn
+
+Outputs:
+  DocumentsBucketName:
+    Description: Upload to incoming/ under this bucket.
+    Value: !Ref DocumentsBucket
+  MetadataTableName:
+    Description: DynamoDB table for processing metadata.
+    Value: !Ref MetadataTable
+  DocumentRoutingFunctionArn:
+    Description: Lambda ARN.
+    Value: !GetAtt DocumentRoutingFunction.Arn
